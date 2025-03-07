@@ -2,7 +2,23 @@ import streamlit as st
 import openai
 
 # Configure OpenAI API Key
-openai.api_key = "your_openai_api_key"
+# openai.api_key = "your_openai_api_key"
+from openai import OpenAI
+
+client = OpenAI(
+  api_key= "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"
+)
+
+completion = client.chat.completions.create(
+  model="gpt-4o-mini",
+  store=True,
+  messages=[
+    {"role": "user", "content": "write a haiku about ai"}
+  ]
+)
+
+print(completion.choices[0].message);
+
 
 # Streamlit UI
 st.title("🎙️ AI InterviewMate - Practice Your Interviews")

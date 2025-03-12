@@ -1,0 +1,109 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "path": "support-call",
+        "httpMethod": "POST",
+        "responseCode": 200
+      },
+      "name": "Webhook (Call Trigger)",
+      "type": "n8n-nodes-base.webhook",
+      "position": [200, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://api.twilio.com/v1/calls",
+        "method": "POST",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "bodyParametersJson": "{ \"from\": \"+12065550123\", \"to\": \"+918888888888\", \"twiml\": \"<Response><Say>Welcome to support. Press 1 for billing, 2 for tech support.</Say></Response>\" }"
+      },
+      "name": "Twilio IVR System",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [400, 100]
+    },
+    {
+      "parameters": {
+        "url": "https://api.servicenow.com/v1/tickets?customer={{$json[\"caller_id\"]}}",
+        "method": "GET",
+        "responseFormat": "json"
+      },
+      "name": "Fetch Customer History (ServiceNow)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [400, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { query: `Summarize and suggest solutions for this ticket: ${items[0].json.details}` } }];"
+      },
+      "name": "Prepare AI Query",
+      "type": "n8n-nodes-base.function",
+      "position": [600, 200]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4",
+        "temperature": 0.7,
+        "prompt": "{{$json[\"query\"]}}"
+      },
+      "name": "AI Agent Assistance (OpenAI)",
+      "type": "n8n-nodes-base.openAi",
+      "position": [800, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://api.twilio.com/v1/calls/transfer",
+        "method": "POST",
+        "jsonParameters": true,
+        "bodyParametersJson": "{ \"callSid\": \"{{$json[\"call_id\"]}}\", \"to\": \"+918888888889\" }"
+      },
+      "name": "Transfer Call to Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1000, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://api.servicenow.com/v1/tickets/update",
+        "method": "POST",
+        "jsonParameters": true,
+        "bodyParametersJson": "{ \"ticket_id\": \"{{$json[\"ticket_id\"]}}\", \"summary\": \"{{$json[\"summary\"]}}\", \"status\": \"Resolved\" }"
+      },
+      "name": "Update Ticket with AI Summary",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1200, 200]
+    },
+    {
+      "parameters": {
+        "toEmail": "{{$json[\"customer_email\"]}}",
+        "subject": "Support Ticket Resolution",
+        "message": "Dear Customer, your issue has been resolved. AI Summary: {{$json[\"summary\"]}}"
+      },
+      "name": "Send Follow-up Email",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [1400, 200]
+    }
+  ],
+  "connections": {
+    "Webhook (Call Trigger)": {
+      "main": [[{ "node": "Twilio IVR System", "type": "main", "index": 0 }]]
+    },
+    "Twilio IVR System": {
+      "main": [[{ "node": "Fetch Customer History (ServiceNow)", "type": "main", "index": 0 }]]
+    },
+    "Fetch Customer History (ServiceNow)": {
+      "main": [[{ "node": "Prepare AI Query", "type": "main", "index": 0 }]]
+    },
+    "Prepare AI Query": {
+      "main": [[{ "node": "AI Agent Assistance (OpenAI)", "type": "main", "index": 0 }]]
+    },
+    "AI Agent Assistance (OpenAI)": {
+      "main": [[{ "node": "Transfer Call to Agent", "type": "main", "index": 0 }]]
+    },
+    "Transfer Call to Agent": {
+      "main": [[{ "node": "Update Ticket with AI Summary", "type": "main", "index": 0 }]]
+    },
+    "Update Ticket with AI Summary": {
+      "main": [[{ "node": "Send Follow-up Email", "type": "main", "index": 0 }]]
+    }
+  }
+}
